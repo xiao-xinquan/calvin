@@ -4,8 +4,8 @@
 pip install wheel cmake==3.18.4
 
 cd calvin_env/tacto
-pip install -e .
+pip install -e . --use-pep517
 cd ..
-pip install -e .
+pip install -e . --use-pep517
 cd ../calvin_models
-pip install -e .
+pip install -e . --use-pep517

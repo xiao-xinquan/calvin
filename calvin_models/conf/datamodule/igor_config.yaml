@@ -1,0 +1,13 @@
+defaults:
+  - datasets: vision_lang
+  # - transforms: play_basic
+  - transforms: igor_config
+  - proprioception_dims: igor_config #robot_full
+  - observation_space: lang_rgb_static_abs_act
+_target_: calvin_agent.datasets.calvin_data_module.CalvinDataModule
+_recursive_: false
+root_data_dir: "/mnt/shared_data/dataset/dataset_calvin/task_ABC_D"
+action_space: 7
+action_max: [1., 1., 1., 1., 1., 1., 1.,]
+action_min: [-1., -1., -1., -1., -1., -1., -1]
+shuffle_val: false

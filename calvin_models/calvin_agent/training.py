@@ -19,11 +19,52 @@ from pytorch_lightning import Callback, LightningModule, seed_everything, Traine
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities import rank_zero_only
 
+original_sys_path = sys.path.copy()
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from src.model.vla.pizero import PiZero
+sys.path = original_sys_path
+
 logger = logging.getLogger(__name__)
 
+def build_datamodule():
+    """
+    Build the datamodule from the hydra config.
 
-@hydra.main(config_path="../conf", config_name="config")
+    Args:
+        cfg: hydra config
+    """
+    print("---------------Building datamodule...-------------")
+    # sets seeds for numpy, torch, python.random and PYTHONHASHSEED.
+    calvin_root = Path(os.environ["CALVIN_ROOT"])
+    from hydra import initialize_config_dir, compose
+    from hydra.core.global_hydra import GlobalHydra
+
+    if GlobalHydra.instance().is_initialized():
+        GlobalHydra.instance().clear()
+
+    initialize_config_dir(config_dir=str(calvin_root / "calvin_models" / "conf"), job_name="build_dm")
+    cfg = compose(config_name="igor-finetune")
+    # print(f"cfg: {cfg}")
+    seed_everything(cfg.seed, workers=True)  # type: ignore
+    # datamodule = hydra.utils.instantiate(cfg.datamodule, training_repo_root=Path(calvin_agent.__file__).parents[2])
+    # datamodule.setup("fit")
+
+    original_cwd = os.getcwd()
+    os.chdir(calvin_root)
+    try:
+        datamodule = hydra.utils.instantiate(
+            cfg.datamodule, training_repo_root=calvin_root
+        )
+        datamodule.setup("fit")
+    finally:
+        os.chdir(original_cwd) 
+    return datamodule
+
+
+# @hydra.main(config_path="../conf", config_name="config")
+@hydra.main(config_path="../conf", config_name="igor-finetune")
 def train(cfg: DictConfig) -> None:
+# def train(cfg: DictConfig):
     """
     This is called to start a training.
 
@@ -33,13 +74,86 @@ def train(cfg: DictConfig) -> None:
     # sets seeds for numpy, torch, python.random and PYTHONHASHSEED.
     seed_everything(cfg.seed, workers=True)  # type: ignore
     datamodule = hydra.utils.instantiate(cfg.datamodule, training_repo_root=Path(calvin_agent.__file__).parents[2])
+    datamodule.setup("fit")
+
+    from torch.utils.data import Dataset
+
+    class IGORDataset(Dataset):
+        def __init__(self, base_dataset):
+            self.base = base_dataset
+            self.batch_size = 16
+            self.num_workers = 4
+            self.shuffle = True
+
+        def __len__(self):
+            return len(self.base)
+
+        def __getitem__(self, idx):
+            episode = self.base[idx]  
+            new_sample = {
+                "observation": {
+                    "image_primary": episode["rgb_obs"]["rgb_static"][0],
+                    "proprio": episode["robot_obs"][0].unsqueeze(0)
+                },
+                "action": episode["actions"],
+                "task": {}
+            }
+
+            if "language" in episode:
+                new_sample["task"]["language_instruction"] = episode["language"]
+            return new_sample
+    
+    # for key in datamodule.train_datasets:
+    #     base = datamodule.train_datasets[key]
+    #     datamodule.train_datasets[key] = IGORDataset(base)
+    # for key in datamodule.val_datasets:
+    #     base = datamodule.val_datasets[key]
+    #     datamodule.val_datasets[key] = IGORDataset(base)
+
+    train_loaders = datamodule.train_dataloader()
+    for key, loader in train_loaders.items():
+        print(f"Train loader {key}:")
+    batch = next(iter(loader))
+    print("\n📦 Batch keys and shapes:")
+    for k, v in batch.items():
+        if isinstance(v, dict):
+            print(f"  {k}: (dict with {len(v)} views)")
+            for cam_name, tensor in v.items():
+                print(f"    - {cam_name}: shape={tensor.shape}")
+        elif hasattr(v, "shape"):
+            print(f"  {k}: shape={v.shape}")
+        else:
+            print(f"  {k}: type={type(v)}, value={v}")
+
+    print(f"Batch shape: {batch['action'].shape}")
+    print(f"Batch keys: {batch.keys()}")
+
+    # return datamodule
+
     chk = get_last_checkpoint(Path.cwd())
+    # chk = Path("/mnt/shared_data/chuheng/exp_pi/250203_bridge_reproduce/2025-02-03_05-35_42/checkpoint/step19669.pt")
+    # chk = None
+
+    # model = None
+    # checkpoint = torch.load("path/to/checkpoint.ckpt")
+    # model.load_state_dict(checkpoint["state_dict"])
 
     # Load Model
     if chk is not None:
         model = getattr(models_m, cfg.model["_target_"].split(".")[-1]).load_from_checkpoint(chk.as_posix())
     else:
-        model = hydra.utils.instantiate(cfg.model)
+        src_path = Path(__file__).absolute().parents[3] / "src"
+        original_path = sys.path.copy()
+        try:
+            sys.path.insert(0, src_path)
+            print(f"Loading model from {src_path}")
+            import src.model.paligemma.siglip  # 测试是否能手动 import 成功
+            print("Successfully imported siglip module.")
+            # model = hydra.utils.instantiate(cfg.model)
+            model = PiZero(cfg, use_ddp=cfg.multi_gpu)
+        finally:
+            sys.path = original_path
+    print("Successfully loaded model.")
 
     log_rank_0(f"Training with the following config:\n{OmegaConf.to_yaml(cfg)}")
     log_rank_0("Repo commit hash: {}".format(get_git_commit_hash(Path(hydra.utils.to_absolute_path(__file__)))))
@@ -66,6 +180,7 @@ def train(cfg: DictConfig) -> None:
 
     # Start training
     trainer.fit(model, datamodule=datamodule, ckpt_path=chk)  # type: ignore
+    
 
 
 def setup_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:

@@ -1,3 +1,5 @@
 [submodule "calvin_env"]
 	path = calvin_env
 	url = https://github.com/mees/calvin_env.git
+[submodule "calvin"]
+	url = git@github.com:xiao-xinquan/calvin.git

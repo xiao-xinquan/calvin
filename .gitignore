@@ -144,3 +144,7 @@ calvin_venv/*
 
 # Ignore datasets as downloaded according to instructions
 dataset/*
+
+calvin_debug_dataset/*
+D_D_static_rgb_baseline/*
+

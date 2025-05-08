@@ -1,0 +1,1 @@
+{"0": {"avg_seq_len": 0.0, "chain_sr": {"1": 0.0, "2": 0.0, "3": 0.0, "4": 0.0, "5": 0.0}, "task_info": {"turn_on_led": {"success": 0, "total": 1}, "push_red_block_left": {"success": 0, "total": 1}, "push_blue_block_right": {"success": 0, "total": 1}, "open_drawer": {"success": 0, "total": 1}}}}

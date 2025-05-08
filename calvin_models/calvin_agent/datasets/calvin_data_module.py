@@ -28,6 +28,8 @@ class CalvinDataModule(pl.LightningDataModule):
         shuffle_val: bool = False,
         **kwargs: Dict,
     ):
+        # from omegaconf import OmegaConf
+        # print(OmegaConf.to_yaml(datasets, resolve=True))
         super().__init__()
         self.datasets_cfg = datasets
         self.train_datasets = None
@@ -82,6 +84,8 @@ class CalvinDataModule(pl.LightningDataModule):
 
         if self.use_shm:
             train_shm_lookup, val_shm_lookup = load_shm_lookup()
+
+        print(f"using {self.datasets_cfg.items()}")
 
         for _, dataset in self.datasets_cfg.items():
             train_dataset = hydra.utils.instantiate(

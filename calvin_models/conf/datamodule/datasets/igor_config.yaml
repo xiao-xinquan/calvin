@@ -1,0 +1,6 @@
+defaults:
+  - vision_dataset: igor_vision_config
+    # - min_window_size: 4
+  - proprioception_dims: igor_config #robot_full
+  - lang_dataset: igor_lang_config
+    # - min_window_size: 4

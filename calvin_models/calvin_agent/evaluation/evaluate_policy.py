@@ -2,6 +2,7 @@ import argparse
 from collections import Counter, defaultdict
 import logging
 import os
+import cv2
 from pathlib import Path
 import sys
 import time
@@ -36,7 +37,7 @@ from calvin_env.envs.play_table_env import get_env
 logger = logging.getLogger(__name__)
 
 EP_LEN = 360
-NUM_SEQUENCES = 1000
+NUM_SEQUENCES = 4
 
 
 def get_epoch(checkpoint):
@@ -106,8 +107,9 @@ def evaluate_policy(model, env, epoch, eval_log_dir=None, debug=False, create_pl
     if not debug:
         eval_sequences = tqdm(eval_sequences, position=0, leave=True)
 
-    for initial_state, eval_sequence in eval_sequences:
-        result = evaluate_sequence(env, model, task_oracle, initial_state, eval_sequence, val_annotations, plans, debug)
+    # for initial_state, eval_sequence in eval_sequences:
+    for seq_id, (initial_state, eval_sequence) in enumerate(eval_sequences):
+        result = evaluate_sequence(env, model, task_oracle, initial_state, eval_sequence, val_annotations, plans, debug, seq_id)
         results.append(result)
         if not debug:
             eval_sequences.set_description(
@@ -121,7 +123,7 @@ def evaluate_policy(model, env, epoch, eval_log_dir=None, debug=False, create_pl
     return results
 
 
-def evaluate_sequence(env, model, task_checker, initial_state, eval_sequence, val_annotations, plans, debug):
+def evaluate_sequence(env, model, task_checker, initial_state, eval_sequence, val_annotations, plans, debug, seq_id):
     """
     Evaluates a sequence of language instructions.
     """
@@ -136,7 +138,7 @@ def evaluate_sequence(env, model, task_checker, initial_state, eval_sequence, va
         print(f"Evaluating sequence: {' -> '.join(eval_sequence)}")
         print("Subtask: ", end="")
     for subtask in eval_sequence:
-        success = rollout(env, model, task_checker, subtask, val_annotations, plans, debug)
+        success = rollout(env, model, task_checker, subtask, val_annotations, plans, debug, seq_id)
         if success:
             success_counter += 1
         else:
@@ -144,7 +146,7 @@ def evaluate_sequence(env, model, task_checker, initial_state, eval_sequence, va
     return success_counter
 
 
-def rollout(env, model, task_oracle, subtask, val_annotations, plans, debug):
+def rollout(env, model, task_oracle, subtask, val_annotations, plans, debug, seq_id):
     """
     Run the actual rollout on one subtask (which is one natural language instruction).
     """
@@ -157,13 +159,18 @@ def rollout(env, model, task_oracle, subtask, val_annotations, plans, debug):
     model.reset()
     start_info = env.get_info()
 
+    os.makedirs("rollout_videos", exist_ok=True)
+    video_path = os.path.join("rollout_videos", f"{subtask}_{seq_id}.mp4")
+    fps = 24
+    frame_size = (500, 500)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(video_path, fourcc, fps, frame_size)
+
     for step in range(EP_LEN):
         action = model.step(obs, lang_annotation)
+        # print(action)
         obs, _, _, current_info = env.step(action)
-        if debug:
-            img = env.render(mode="rgb_array")
-            join_vis_lang(img, lang_annotation)
-            # time.sleep(0.1)
+
         if step == 0:
             # for tsne plot, only if available
             collect_plan(model, plans, subtask)
@@ -174,6 +181,29 @@ def rollout(env, model, task_oracle, subtask, val_annotations, plans, debug):
             if debug:
                 print(colored("success", "green"), end=" ")
             return True
+        
+        img = env.render(mode = "rgb_array")
+        img = img[:, :, ::-1].copy() # seems like cv2 expects BGR
+        img = cv2.resize(img, frame_size)
+
+        # overlay language instruction
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(
+            img,
+            subtask,
+            (50, 50), # text pixel coordinates
+            font,
+            1,
+            (0, 0, 0), # black text
+            1,
+            cv2.LINE_AA,
+        )
+
+        video_writer.write(img)
+
+        if step == EP_LEN - 1 or len(current_task_info) > 0: # seem like len(current_task_info) > 0 means success, i dunno why
+            video_writer.release()
+            break
     if debug:
         print(colored("fail", "red"), end=" ")
     return False

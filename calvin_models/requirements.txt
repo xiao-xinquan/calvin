@@ -1,4 +1,4 @@
-cmake
+cmake==3.18.4
 wheel
 numpy>1.2
 hydra-core==1.1.1
@@ -7,7 +7,6 @@ matplotlib
 opencv-python
 omegaconf
 plotly
-pyhash
 pytorch-lightning==1.8.6
 lightning_lite
 torch==1.13.1
@@ -22,3 +21,4 @@ moviepy
 tqdm
 termcolor
 wandb
+pyhash
