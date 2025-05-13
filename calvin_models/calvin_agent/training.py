@@ -53,7 +53,7 @@ def build_datamodule():
     os.chdir(calvin_root)
     try:
         datamodule = hydra.utils.instantiate(
-            cfg.datamodule, training_repo_root=calvin_root
+            cfg.datamodule, training_repo_root=calvin_root 
         )
         datamodule.setup("fit")
     finally:
@@ -76,59 +76,6 @@ def train(cfg: DictConfig) -> None:
     datamodule = hydra.utils.instantiate(cfg.datamodule, training_repo_root=Path(calvin_agent.__file__).parents[2])
     datamodule.setup("fit")
 
-    from torch.utils.data import Dataset
-
-    class IGORDataset(Dataset):
-        def __init__(self, base_dataset):
-            self.base = base_dataset
-            self.batch_size = 16
-            self.num_workers = 4
-            self.shuffle = True
-
-        def __len__(self):
-            return len(self.base)
-
-        def __getitem__(self, idx):
-            episode = self.base[idx]  
-            new_sample = {
-                "observation": {
-                    "image_primary": episode["rgb_obs"]["rgb_static"][0],
-                    "proprio": episode["robot_obs"][0].unsqueeze(0)
-                },
-                "action": episode["actions"],
-                "task": {}
-            }
-
-            if "language" in episode:
-                new_sample["task"]["language_instruction"] = episode["language"]
-            return new_sample
-    
-    # for key in datamodule.train_datasets:
-    #     base = datamodule.train_datasets[key]
-    #     datamodule.train_datasets[key] = IGORDataset(base)
-    # for key in datamodule.val_datasets:
-    #     base = datamodule.val_datasets[key]
-    #     datamodule.val_datasets[key] = IGORDataset(base)
-
-    train_loaders = datamodule.train_dataloader()
-    for key, loader in train_loaders.items():
-        print(f"Train loader {key}:")
-    batch = next(iter(loader))
-    print("\n📦 Batch keys and shapes:")
-    for k, v in batch.items():
-        if isinstance(v, dict):
-            print(f"  {k}: (dict with {len(v)} views)")
-            for cam_name, tensor in v.items():
-                print(f"    - {cam_name}: shape={tensor.shape}")
-        elif hasattr(v, "shape"):
-            print(f"  {k}: shape={v.shape}")
-        else:
-            print(f"  {k}: type={type(v)}, value={v}")
-
-    print(f"Batch shape: {batch['action'].shape}")
-    print(f"Batch keys: {batch.keys()}")
-
-    # return datamodule
 
     chk = get_last_checkpoint(Path.cwd())
     # chk = Path("/mnt/shared_data/chuheng/exp_pi/250203_bridge_reproduce/2025-02-03_05-35_42/checkpoint/step19669.pt")

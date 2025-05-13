@@ -2,8 +2,8 @@ _target_: calvin_agent.datasets.disk_dataset.DiskDataset
 key: "lang"
 save_format: "npz"
 batch_size: 32
-min_window_size: 4
-max_window_size: 4
+min_window_size: 8
+max_window_size: 8
 proprio_state: ${datamodule.proprioception_dims}
 obs_space: ${datamodule.observation_space}
 skip_frames: 1

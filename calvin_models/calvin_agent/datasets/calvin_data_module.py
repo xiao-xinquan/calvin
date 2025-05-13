@@ -68,6 +68,9 @@ class CalvinDataModule(pl.LightningDataModule):
 
             save_shm_lookup(train_shm_lookup, val_shm_lookup)
 
+
+
+
     def setup(self, stage=None):
         transforms = load_dataset_statistics(self.training_dir, self.val_dir, self.transforms)
 
@@ -124,3 +127,26 @@ class CalvinDataModule(pl.LightningDataModule):
         }
         combined_val_loaders = CombinedLoader(val_dataloaders, "max_size_cycle")
         return combined_val_loaders
+
+    def compute_action_quantiles(self, max_samples=100000, step=1):
+        actions = []
+        import torch
+        from tqdm import tqdm
+
+        dataset_key = "lang" if "lang" in self.train_datasets else list(self.train_datasets.keys())[0]
+        dataset = self.train_datasets[dataset_key]
+        print(f"Computing proprio quantiles for dataset {dataset_key}")
+        print(f"Dataset length: {len(dataset)}")
+        for i in tqdm(range(0, len(dataset), 259)):
+            if len(actions) >= max_samples:
+                break
+            item = dataset[i]
+            # print(f"item keys: {item.keys()}, item : {item}")
+            action = item["observation"]["proprio"]
+            if isinstance(action, torch.Tensor):
+                action = action.numpy()
+            actions.append(action)
+        all_actions = np.concatenate(actions, axis=0)
+        q1 = np.percentile(all_actions, 1, axis=0)
+        q99 = np.percentile(all_actions, 99, axis=0)
+        return q1, q99

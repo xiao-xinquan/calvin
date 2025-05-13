@@ -15,13 +15,14 @@ class ScaleImageTensor(object):
         return tensor.float().div(255)
 
 
-class NormalizeVector(object):
+class NormalizeVector(object): 
     """Normalize a tensor vector with mean and standard deviation."""
 
     def __init__(self, mean=0.0, std=1.0):
         self.std = torch.Tensor(std)
         self.std[self.std == 0.0] = 1.0
         self.mean = torch.Tensor(mean)
+        # print(f"std: {self.std}, mean: {self.mean}, shape: {self.std.shape}")
 
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
         assert isinstance(tensor, torch.Tensor)
