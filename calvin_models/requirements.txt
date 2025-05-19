@@ -7,9 +7,9 @@ matplotlib
 opencv-python
 omegaconf
 plotly
-pytorch-lightning==1.8.6
+pytorch-lightning
 lightning_lite
-torch==1.13.1
+torch
 torchvision
 MulticoreTSNE
 gitpython

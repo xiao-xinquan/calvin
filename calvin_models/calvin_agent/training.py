@@ -48,6 +48,7 @@ def build_datamodule():
     seed_everything(cfg.seed, workers=True)  # type: ignore
     # datamodule = hydra.utils.instantiate(cfg.datamodule, training_repo_root=Path(calvin_agent.__file__).parents[2])
     # datamodule.setup("fit")
+    
 
     original_cwd = os.getcwd()
     os.chdir(calvin_root)
