@@ -95,7 +95,7 @@ def train(cfg: DictConfig) -> None:
         try:
             sys.path.insert(0, src_path)
             print(f"Loading model from {src_path}")
-            import src.model.paligemma.siglip  # 测试是否能手动 import 成功
+            import src.model.paligemma.siglip 
             print("Successfully imported siglip module.")
             # model = hydra.utils.instantiate(cfg.model)
             model = PiZero(cfg, use_ddp=cfg.multi_gpu)
